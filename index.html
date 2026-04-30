@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Card Duel Online</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Экран выбора роли -->
+    <div id="start-screen">
+        <h1>Выберите игрока</h1>
+        <div class="menu-buttons">
+            <button id="btn-p1" onclick="chooseRole('p1')">Играть за Игрока 1</button>
+            <button id="btn-p2" onclick="chooseRole('p2')">Играть за Игрока 2</button>
+            <button id="reset-db" style="background: #c0392b; margin-top: 50px;">Сбросить игру для всех</button>
+        </div>
+    </div>
+
+    <div id="game-container" style="display: none;">
+        <div id="opponent-info" class="player-info">Противник: <span id="opp-hp">30</span> HP</div>
+        <div id="opponent-hand" class="hand"></div>
+        
+        <div id="battlefield">
+            <div id="opponent-board" class="board-half"></div>
+            <div id="player-board" class="board-half"></div>
+        </div>
+
+        <div id="player-hand" class="hand"></div>
+        <div id="player-info" class="player-info">Вы: <span id="my-hp">30</span> HP | <span id="turn-status">...</span></div>
+        
+        <button id="end-turn-btn" disabled>Завершить ход</button>
+    </div>
+
+    <script type="module" src="script.js"></script>
+</body>
+</html>
