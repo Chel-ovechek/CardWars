@@ -1,134 +1,63 @@
-body { 
-    background: #1a1a1a; 
-    color: white; 
-    font-family: 'Segoe UI', Arial, sans-serif; 
-    margin: 0; 
-    overflow: hidden; 
-    display: flex; 
-    justify-content: center;
+:root {
+    --blue: #3498db; --green: #2ecc71; --orange: #e67e22; --red: #e74c3c;
+    --card-w: 26vw; --card-h: 38vw;
 }
+@media (min-width: 600px) { :root { --card-w: 110px; --card-h: 160px; } }
 
-#game-container { 
-    width: 100vw; 
-    height: 100vh; 
-    display: flex; 
-    flex-direction: column; 
-    justify-content: space-between; 
-    padding: 10px;
-    box-sizing: border-box;
-}
+body { background: #000; color: #fff; font-family: sans-serif; margin: 0; padding: 0; height: 100dvh; width: 100vw; overflow: hidden; }
 
-/* Зоны рук и полей */
-.hand { 
-    display: flex; 
-    justify-content: center; 
-    gap: 15px; 
-    height: 160px; 
-    padding: 10px;
-    background: rgba(255,255,255,0.03);
-    border-radius: 15px;
-}
+/* ЛОББИ */
+.screen { position: fixed; inset: 0; background: #111; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+.logo { font-size: 2.5rem; color: #f1c40f; margin-bottom: 20px; }
+.menu-box { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 12px; }
 
-#battlefield { 
-    flex-grow: 1; 
-    display: flex; 
-    flex-direction: column; 
-    justify-content: center; 
-    gap: 10px; 
-}
+.menu-btn { padding: 20px; font-size: 1.2rem; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; color: #fff; }
+.primary { background: var(--blue); }
+.success { background: var(--green); }
+.cancel { background: #444; }
+.mega-input { padding: 15px; font-size: 1.2rem; border-radius: 10px; border: 2px solid #333; background: #000; color: #fff; text-align: center; }
 
-.board-half { 
-    display: flex; 
-    justify-content: center; 
-    gap: 15px; 
-    min-height: 180px; 
-    align-items: center; 
-    border-radius: 10px;
-    transition: background 0.3s;
-}
+.deck-row { display: flex; gap: 8px; }
+.deck-btn { flex: 1; padding: 15px; background: #222; border: 2px solid #444; color: #fff; border-radius: 10px; font-weight: bold; }
+.deck-btn.active { border-color: var(--blue); background: #004488; }
 
-/* СТИЛЬ КАРТЫ */
-.card {
-    width: 100px; 
-    height: 140px; 
-    background: white; 
-    color: black; 
-    border-radius: 10px;
-    display: flex; 
-    flex-direction: column; 
-    justify-content: center; 
-    align-items: center;
-    cursor: pointer; 
-    position: relative; 
-    border: 3px solid #333;
-    transition: all 0.2s;
-    font-size: 22px;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-    user-select: none;
-}
+.room-item { background: #1a1a1a; padding: 15px; border-radius: 12px; border: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
 
-.card.selected { 
-    border-color: #f1c40f; 
-    transform: translateY(-15px); 
-    box-shadow: 0 0 20px #f1c40f;
-}
+/* ИГРА (СЕТКА) */
+#game-container { height: 100dvh; display: flex; flex-direction: column; }
+.top-bar { height: 50px; display: flex; justify-content: space-between; align-items: center; padding: 0 15px; background: #111; }
+.bot-bar { height: 70px; display: flex; justify-content: space-between; align-items: center; padding: 0 15px; background: #111; }
 
-.card[data-suit="♦"], .card[data-suit="♥"] { color: #e74c3c; }
+.battle-field { flex: 1; display: flex; justify-content: center; align-items: center; gap: 8px; }
+.battle-field.can-drop { background: rgba(46,204,113,0.1); border: 2px dashed var(--green); }
 
-/* Кружочки DMG и HP */
-.card .dmg { 
-    position: absolute; bottom: -8px; left: -8px; 
-    background: #3498db; color: white; 
-    width: 30px; height: 30px; 
-    display: flex; justify-content: center; align-items: center; 
-    border-radius: 50%; font-size: 16px; font-weight: bold;
-    border: 2px solid white;
-}
-.card .hp { 
-    position: absolute; bottom: -8px; right: -8px; 
-    background: #e74c3c; color: white; 
-    width: 30px; height: 30px; 
-    display: flex; justify-content: center; align-items: center; 
-    border-radius: 50%; font-size: 16px; font-weight: bold;
-    border: 2px solid white;
-}
+#turn-banner { height: 35px; line-height: 35px; text-align: center; font-size: 1.1rem; background: #1a1a1a; color: #555; }
+#turn-banner.active { color: #f1c40f; background: #222; }
 
-/* Интерактивы */
-.board-half.can-drop { background: rgba(46, 204, 113, 0.2); cursor: pointer; }
-.card.can-attack { border: 4px solid #e74c3c !important; cursor: crosshair; animation: shake 0.5s infinite; }
+.hand-zone { height: 160px; display: flex; justify-content: center; align-items: center; gap: 8px; padding: 0 10px; background: #050505; overflow-x: auto; }
 
-@keyframes shake {
-    0% { transform: rotate(0); } 25% { transform: rotate(2deg); } 75% { transform: rotate(-2deg); } 100% { transform: rotate(0); }
-}
+/* КАРТЫ (ЦВЕТНЫЕ) */
+.card { width: var(--card-w); height: var(--card-h); border-radius: 10px; overflow: hidden; border: 3px solid #000; display: flex; flex-direction: column; flex-shrink: 0; transition: 0.2s; }
+.c-half { height: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; font-weight: bold; color: #fff; }
+.c-half.t { background: rgba(0,0,0,0.2); border-bottom: 1px solid rgba(255,255,255,0.1); }
 
-/* Кнопка и меню */
-#end-turn-btn { 
-    position: fixed; right: 20px; top: 50%; transform: translateY(-50%);
-    padding: 15px 25px; font-size: 18px; font-weight: bold;
-    background: #27ae60; color: white; border: none; border-radius: 8px; cursor: pointer;
-}
-#end-turn-btn:disabled { background: #7f8c8d; cursor: not-allowed; opacity: 0.5; }
+.card[data-p="1"] { background: var(--blue); }
+.card[data-p="2"] { background: var(--green); }
+.card[data-p="3"] { background: var(--orange); }
+.card[data-p="4"] { background: var(--red); }
 
-.player-info { font-size: 20px; text-align: center; padding: 5px; background: rgba(0,0,0,0.4); border-radius: 5px; }
+.card.selected { transform: translateY(-20px); border-color: #fff; box-shadow: 0 0 20px #fff; z-index: 100; }
+.card.can-go { border-color: #fff; }
+.card.can-attack { border-color: #f1c40f; animation: pulse 0.8s infinite; }
+.card.exhausted { opacity: 0.5; filter: grayscale(0.5); }
 
-#start-screen {
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: #2c3e50; display: flex; flex-direction: column;
-    align-items: center; justify-content: center; z-index: 100;
-}
-.menu-buttons { display: flex; flex-direction: column; gap: 15px; }
-.menu-buttons button { padding: 15px 30px; font-size: 18px; cursor: pointer; border-radius: 8px; border: none; }
+@keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
 
-/* Карта, которая уже сходила или только выставлена */
-.card.exhausted {
-    opacity: 0.6;
-    filter: grayscale(0.5);
-    cursor: not-allowed;
-    border-style: dotted;
-}
+#end-turn-btn { padding: 12px 25px; font-size: 1.2rem; background: var(--green); border: none; border-radius: 10px; color: #fff; font-weight: bold; }
+#end-turn-btn:disabled { background: #333; color: #666; }
 
-/* Подсветка своей карты на столе, которой можно ходить */
-.card.can-go {
-    border-color: #2ecc71 !important;
-    box-shadow: 0 0 10px #2ecc71;
-}
+/* ФИНАЛ */
+.plaque { background: #222; padding: 30px; border-radius: 20px; border: 5px solid #444; text-align: center; }
+.plaque.win { border-color: var(--green); }
+.plaque.lose { border-color: var(--red); }
+#end-txt { font-size: 2.5rem; margin-bottom: 20px; }

@@ -2,35 +2,51 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Card Duel Online</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>CardWars</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Экран выбора роли -->
-    <div id="start-screen">
-        <h1>Выберите игрока</h1>
-        <div class="menu-buttons">
-            <button id="btn-p1" onclick="chooseRole('p1')">Играть за Игрока 1</button>
-            <button id="btn-p2" onclick="chooseRole('p2')">Играть за Игрока 2</button>
-            <button id="reset-db" style="background: #c0392b; margin-top: 50px;">Сбросить игру для всех</button>
+    <div id="lobby-screen" class="screen">
+        <h1 class="logo">CARD WARS</h1>
+        <div id="lobby-main" class="menu-box">
+            <button class="menu-btn primary" onclick="showCreateForm()">НОВАЯ ИГРА</button>
+            <div id="rooms-list"></div>
+        </div>
+        <div id="create-form" class="menu-box" style="display:none;">
+            <input type="text" id="room-name" placeholder="НАЗВАНИЕ" class="mega-input">
+            <input type="text" id="room-pass" placeholder="ПАРОЛЬ" class="mega-input">
+            <div class="deck-row">
+                <button id="d24" class="deck-btn" onclick="setDeckSize(24)">24</button>
+                <button id="d36" class="deck-btn" onclick="setDeckSize(36)">36</button>
+                <button id="d52" class="deck-btn active" onclick="setDeckSize(52)">52</button>
+            </div>
+            <button class="menu-btn success" onclick="confirmCreate()">СОЗДАТЬ</button>
+            <button class="menu-btn cancel" onclick="hideCreateForm()">ОТМЕНА</button>
         </div>
     </div>
 
     <div id="game-container" style="display: none;">
-        <div id="opponent-info" class="player-info">Противник: <span id="opp-hp">30</span> HP</div>
-        <div id="opponent-hand" class="hand"></div>
-        
-        <div id="battlefield">
-            <div id="opponent-board" class="board-half"></div>
-            <div id="player-board" class="board-half"></div>
+        <div class="top-bar">
+            <span>ВРАГ: 🎴 <span id="opp-count">0</span></span>
+            <button class="exit-btn" onclick="exitToLobby()">ВЫХОД</button>
         </div>
-
-        <div id="player-hand" class="hand"></div>
-        <div id="player-info" class="player-info">Вы: <span id="my-hp">30</span> HP | <span id="turn-status">...</span></div>
-        
-        <button id="end-turn-btn" disabled>Завершить ход</button>
+        <div id="opp-board" class="battle-field"></div>
+        <div id="turn-banner">...</div>
+        <div id="my-board" class="battle-field"></div>
+        <div id="player-hand" class="hand-zone"></div>
+        <div class="bot-bar">
+            <span>КОЛОДА: <span id="my-count">0</span></span>
+            <button id="end-turn-btn" disabled>ХОД</button>
+        </div>
     </div>
 
+    <div id="end-screen" class="screen" style="display:none; background: rgba(0,0,0,0.9);">
+        <div id="end-plaque" class="plaque">
+            <h1 id="end-txt"></h1>
+            <button class="menu-btn success" onclick="location.reload()">В МЕНЮ</button>
+        </div>
+    </div>
     <script type="module" src="script.js"></script>
 </body>
 </html>
