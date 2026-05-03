@@ -131,6 +131,12 @@ function render() {
 
     const isTurn = gameState.turn === myRole;
 
+    const canEndTurn = isTurn && (me.played || (me.hand || []).length === 0);
+
+    const turnBtn = document.getElementById('end-turn-btn');
+    if (turnBtn) {
+        turnBtn.disabled = !canEndTurn;
+    }
     // Обновление счетчиков колод
     document.getElementById('opp-count').innerText = opp.deck?.length || 0;
     document.getElementById('my-count').innerText = me.deck?.length || 0;
@@ -264,42 +270,45 @@ function initPointerDrag(el, idx) {
 }
 
 async function playToBoard() {
-    if (selIdx === null || selFrom !== 'hand' || !gameState[myRole].hand) return;
+    if (selIdx === null || selFrom !== 'hand') return;
     
     const data = JSON.parse(JSON.stringify(gameState));
     const me = data[myRole];
     
-    const card = me.hand.splice(selIdx, 1)[0];
-    if (!card) return;
+    if (!me.hand || !me.hand[selIdx]) return;
 
+    const card = me.hand.splice(selIdx, 1)[0];
     card.exh = false; 
+    
     if (!me.board) me.board = [];
     me.board.push(card);
-    me.played = true;
+    
+    // ОТМЕЧАЕМ, ЧТО ИГРОК СДЕЛАЛ ХОД
+    me.played = true; 
     
     resetSel();
     await set(ref(db, `games/${curRoomId}`), data);
 }
-
 document.getElementById('end-turn-btn').onclick = async () => {
-    if (!gameState || gameState.turn !== myRole) return; // Защита
+    if (!gameState || gameState.turn !== myRole) return;
     
     const data = JSON.parse(JSON.stringify(gameState));
     const me = data[myRole];
     
-    // 1. Инициализируем руку, если её нет
-    if (!me.hand) me.hand = [];
-    
-    // 2. Добор карты (если колода не пуста и в руке меньше 4)
-    if (me.deck && me.deck.length > 0 && me.hand.length < 4) {
+    // 1. Добор карты
+    if (me.deck && me.deck.length > 0 && (me.hand || []).length < 4) {
+        if (!me.hand) me.hand = [];
         me.hand.push(me.deck.shift());
     }
     
-    // 3. Снимаем усталость
+    // 2. Снимаем усталость со своих карт
     if (me.board) me.board.forEach(c => c.exh = false);
     
+    // 3. СБРАСЫВАЕМ ФЛАГ ХОДА ДЛЯ СЛЕДУЮЩЕГО РАЗА
+    me.played = false; 
+
     data.turn = myRole === 'p1' ? 'p2' : 'p1';
-    data.action = { id: Date.now(), type: 'draw' }; // Тип draw для анимации у врага
+    data.action = { id: Date.now(), type: 'draw', who: myRole };
     
     resetSel();
     await set(ref(db, `games/${curRoomId}`), data);
