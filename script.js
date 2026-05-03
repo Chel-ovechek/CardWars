@@ -17,6 +17,13 @@ let curRoomId = null, myRole = null, gameState = null, selIdx = null, selFrom = 
 let lastActionId = 0;
 
 // --- ПРИВЯЗКА ФУНКЦИЙ К WINDOW (чтобы работал onclick в HTML) ---
+window.showRules = () => {
+    document.getElementById('rules-modal').style.display = 'flex';
+};
+
+window.hideRules = () => {
+    document.getElementById('rules-modal').style.display = 'none';
+};
 
 window.showCreateForm = () => { 
     document.getElementById('lobby-main').style.display='none'; 
