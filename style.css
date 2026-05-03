@@ -28,8 +28,9 @@ body { background: #000; color: #fff; font-family: 'Arial Black', sans-serif; ma
 }
 .room-item {
     background: #1a1a1a;
-    border: 1px solid #333;
-    padding: 15px;
+    border: 2px solid #333;
+    padding: 12px;
+    margin-bottom: 8px;
     border-radius: 12px;
     display: flex;
     justify-content: space-between;
@@ -38,7 +39,9 @@ body { background: #000; color: #fff; font-family: 'Arial Black', sans-serif; ma
 .room-info { display: flex; flex-direction: column; gap: 4px; }
 .room-name { color: #f1c40f; font-weight: bold; font-size: 1.1rem; }
 .room-meta { color: #888; font-size: 0.8rem; }
-
+.room-status { font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; margin-top: 4px; display: inline-block; }
+.status-open { background: var(--green); color: #000; }
+.status-full { background: var(--orange); color: #fff; }
 
 /* КНОПКИ ВЫБОРА КОЛОДЫ */
 .deck-row { display: flex; gap: 10px; width: 100%; }
@@ -123,6 +126,11 @@ body { background: #000; color: #fff; font-family: 'Arial Black', sans-serif; ma
     border-color: var(--red); 
     animation: attack-pulse 0.8s infinite; 
 }
+.card.ready-to-attack {
+    box-shadow: 0 0 15px rgba(46, 204, 113, 0.6);
+    border-color: var(--green) !important;
+    animation: glow-pulse 1.5s infinite;
+}
 .card.selected { transform: translateY(-30px); border-color: #fff; z-index: 100; }
 /* Вид уставшей карты */
 .card.exhausted {
@@ -175,6 +183,12 @@ body { background: #000; color: #fff; font-family: 'Arial Black', sans-serif; ma
     0% { transform: scale(1); } 
     50% { transform: scale(1.05); } 
     100% { transform: scale(1); } 
+}
+
+@keyframes glow-pulse {
+    0% { box-shadow: 0 0 5px var(--green); }
+    50% { box-shadow: 0 0 20px var(--green); }
+    100% { box-shadow: 0 0 5px var(--green); }
 }
 
 .huge-circle-btn { width: 80px; height: 80px; border-radius: 50%; background: var(--green); border: 5px solid #000; color: #fff; font-weight: bold; font-size: 1rem; box-shadow: 0 4px 10px rgba(0,0,0,0.5); flex-shrink: 0; cursor: pointer; }

@@ -18,24 +18,30 @@ let lastActionId = 0, prevHandLen = 0;
 
 // --- ЛОББИ ---
 onValue(ref(db, 'games'), (s) => {
-    const list = document.getElementById('rooms-list'); if(!list) return;
+    const list = document.getElementById('rooms-list');
+    if(!list) return;
     list.innerHTML = '';
-    const rooms = s.val(); if (!rooms) return;
+    const rooms = s.val();
+    if (!rooms) return;
+
     Object.keys(rooms).forEach(id => {
         const r = rooms[id];
+        const isFull = r.p1.dev !== "" && r.p2.dev !== "";
         const div = document.createElement('div');
         div.className = 'room-item';
         div.innerHTML = `
             <div class="room-info">
-                <span class="room-name">${r.name || 'БИТВА'}</span>
-                <span class="room-meta">КОЛОДА: ${r.deckSize} | КАРТ: ${r.p1.board?.length || 0}</span>
+                <span class="room-name">${r.name || 'БИТВА'}</span><br>
+                <span class="room-status ${isFull ? 'status-full' : 'status-open'}">
+                    ${isFull ? 'В БОЮ' : 'ЕСТЬ МЕСТО'}
+                </span>
             </div>
-            <button class="mega-btn primary" style="width:80px; padding:8px; font-size:0.9rem" onclick="joinRoom('${id}', '${r.pass}')">ВХОД</button>
+            <button class="mega-btn primary" style="width:80px; padding:8px; font-size:0.9rem" 
+                onclick="joinRoom('${id}', '${r.pass}')">ЗАЙТИ</button>
         `;
         list.appendChild(div);
     });
 });
-
 window.showCreateForm = () => { document.getElementById('lobby-main').style.display='none'; document.getElementById('create-form').style.display='flex'; };
 window.hideCreateForm = () => { document.getElementById('lobby-main').style.display='flex'; document.getElementById('create-form').style.display='none'; };
 window.setDeckSize = (size) => { 
@@ -59,41 +65,57 @@ window.confirmCreate = () => {
     set(ref(db, `games/${roomId}`), initial).then(() => joinRoom(roomId, pass));
 };
 
-window.joinRoom = (id, pass) => {
-    if (pass && pass !== "" && pass !== "undefined") { if (prompt("ПАРОЛЬ:") !== pass) return; }
+window.joinRoom = async (id, pass) => {
+    const roomRef = ref(db, `games/${id}`);
+    const snap = await get(roomRef);
+    const d = snap.val();
+    if (!d) return;
+
+    if (pass && d.pass && d.pass !== "" && d.pass !== "undefined") {
+        if (prompt("ПАРОЛЬ:") !== d.pass) return;
+    }
+
     curRoomId = id;
-    onValue(ref(db, `games/${id}`), (s) => {
-        const d = s.val(); if (!d) return;
+
+    // Определяем роль: если ты уже был в этой комнате, или если место свободно
+    if (d.p1.dev === deviceId) {
+        myRole = 'p1';
+    } else if (d.p2.dev === deviceId) {
+        myRole = 'p2';
+    } else if (!d.p1.dev || d.p1.dev === "") {
+        myRole = 'p1';
+        await update(ref(db, `games/${id}/p1`), { dev: deviceId });
+    } else if (!d.p2.dev || d.p2.dev === "") {
+        myRole = 'p2';
+        await update(ref(db, `games/${id}/p2`), { dev: deviceId });
+    } else {
+        alert("КОМНАТА ЗАНЯТА");
+        return;
+    }
+
+    // Обработка автоматического выхода при закрытии вкладки
+    onDisconnect(ref(db, `games/${id}/${myRole}/dev`)).set("");
+
+    onValue(roomRef, (s) => {
+        const data = s.val();
+        if (!data) return;
         
-        gameState = d;
-        if (d.p1?.dev === deviceId) myRole = 'p1';
-        else if (!d.p2?.dev || d.p2?.dev === deviceId) {
-            myRole = 'p2';
-            if (d.p2?.dev !== deviceId) update(ref(db, `games/${id}/p2`), { dev: deviceId });
+        // Анимации
+        if (data.action && data.action.id > lastActionId) {
+            handleActionAnimation(data.action);
+            lastActionId = data.action.id;
+            if (data.action.type === 'attack' || data.action.type === 'play') {
+                gameState = data; 
+                setTimeout(() => render(), 500); 
+                return; 
+            }
         }
 
-        if (myRole) {
-            // ПРОВЕРКА НА АНИМАЦИЮ
-            if (d.action && d.action.id > lastActionId) {
-                handleActionAnimation(d.action);
-                lastActionId = d.action.id;
-                
-                // Если это атака, НЕ вызываем render сразу, ждем завершения прыжка
-                if (d.action.type === 'attack') {
-                    setTimeout(() => render(), 600); 
-                    return; 
-                }
-            }
-
-            if (d[myRole]?.hand?.length > prevHandLen && d.action?.type === 'draw' && d.action?.who === myRole) {
-                fly('my-deck-pos', 'player-hand', false);
-            }
-            prevHandLen = d[myRole]?.hand?.length || 0;
-            
-            document.getElementById('lobby-screen').style.display = 'none';
-            document.getElementById('game-container').style.display = 'flex';
-            render();
-        }
+        gameState = data;
+        render();
+        
+        document.getElementById('lobby-screen').style.display = 'none';
+        document.getElementById('game-container').style.display = 'flex';
     });
 };
 
@@ -153,13 +175,18 @@ function renderBoard(id, board, isOpp, isTurn) {
         const el = createCardUI(c);
         el.id = `${id}-${i}`;
 
-        if (c.exh) el.classList.add('exhausted');
+        if (c.exh) {
+            el.classList.add('exhausted');
+        } else if (!isOpp && isTurn) {
+            // Если это наш ход и карта не устала - подсвечиваем её
+            el.classList.add('ready-to-attack');
+        }
 
+        // Логика кликов
         if (!isOpp && isTurn && !c.exh) {
             el.onclick = (e) => {
                 e.stopPropagation();
-                selIdx = i;
-                selFrom = 'board';
+                selIdx = i; selFrom = 'board';
                 render();
             };
         } else if (isOpp && selFrom === 'board') {
@@ -174,6 +201,7 @@ function renderBoard(id, board, isOpp, isTurn) {
         div.appendChild(el);
     });
 }
+
 // --- УНИВЕРСАЛЬНЫЙ DRAG ---
 function initPointerDrag(el, idx) {
     el.onpointerdown = (e) => {
@@ -390,7 +418,25 @@ function createDeck(size) {
     return d.sort(() => Math.random() - 0.5);
 }
 
-window.exitToLobby = () => { if(confirm("ВЫЙТИ?")) remove(ref(db, `games/${curRoomId}`)).then(() => location.reload()); };
+window.exitToLobby = async () => {
+    if (!confirm("ВЫЙТИ?")) return;
+    
+    const roomRef = ref(db, `games/${curRoomId}`);
+    const snap = await get(roomRef);
+    const d = snap.val();
+    
+    if (d) {
+        // Очищаем только свой девайс
+        await update(ref(db, `games/${curRoomId}/${myRole}`), { dev: "" });
+        
+        // Проверяем, остался ли кто-то другой
+        const otherRole = (myRole === 'p1' ? 'p2' : 'p1');
+        if (!d[otherRole].dev || d[otherRole].dev === "") {
+            await remove(roomRef); // Если оба вышли - удаляем
+        }
+    }
+    location.reload();
+};
 function showEnd(m) { document.getElementById('end-screen').style.display='flex'; document.getElementById('end-txt').innerText = m; }
 function resetSel() { selIdx = null; selFrom = null; }
 function save() { if(curRoomId) set(ref(db, `games/${curRoomId}`), gameState); }
