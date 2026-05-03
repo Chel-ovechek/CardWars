@@ -17,33 +17,25 @@ let curRoomId = null, myRole = null, gameState = null, selIdx = null, selFrom = 
 let lastActionId = 0, prevHandLen = 0;
 
 // --- ЛОББИ ---
-onValue(ref(db, 'games'), (s) => {
-    const list = document.getElementById('rooms-list');
-    if (!list) return;
-    list.innerHTML = '';
-    const rooms = s.val();
-    if (!rooms) return;
+onValue(roomRef, (s) => {
+    const data = s.val();
+    if (!data) return;
 
-    Object.keys(rooms).forEach(id => {
-        const r = rooms[id];
-        // ЗАЩИТА: Если данных игрока нет, пропускаем эту итерацию, чтобы не было ошибки
-        if (!r || !r.p1 || !r.p2) return; 
+    if (data.action && data.action.id > lastActionId) {
+        const act = data.action;
+        lastActionId = act.id;
 
-        const isFull = (r.p1.dev && r.p1.dev !== "") && (r.p2.dev && r.p2.dev !== "");
-        const div = document.createElement('div');
-        div.className = 'room-item';
-        div.innerHTML = `
-            <div class="room-info">
-                <span class="room-name">${r.name || 'БИТВА'}</span><br>
-                <span class="room-status ${isFull ? 'status-full' : 'status-open'}">
-                    ${isFull ? 'В БОЮ' : 'ЕСТЬ МЕСТО'}
-                </span>
-            </div>
-            <button class="mega-btn primary" style="width:80px; padding:8px; font-size:0.9rem" 
-                onclick="joinRoom('${id}', '${r.pass}')">ЗАЙТИ</button>
-        `;
-        list.appendChild(div);
-    });
+        if (act.type === 'attack') {
+            handleActionAnimation(act);
+            // Ждем 600мс (время полета карты + тряска), только потом обновляем цифры и удаляем карты
+            gameState = data; 
+            setTimeout(() => render(), 600);
+            return; 
+        }
+    }
+
+    gameState = data;
+    render();
 });
 
 window.showCreateForm = () => { document.getElementById('lobby-main').style.display='none'; document.getElementById('create-form').style.display='flex'; };
@@ -345,8 +337,9 @@ async function playToBoard() {
 
 async function attack(tIdx) {
     if (selIdx === null || selFrom !== 'board') return;
-    if (gameState.turn !== myRole) return; // ЗАЩИТА: только в свой ход
+    if (gameState.turn !== myRole) return;
 
+    // 1. Копируем состояние для расчетов
     const data = JSON.parse(JSON.stringify(gameState));
     const me = data[myRole];
     const oppRole = myRole === 'p1' ? 'p2' : 'p1';
@@ -357,60 +350,65 @@ async function attack(tIdx) {
 
     if (!myC || !opC || myC.exh) return;
 
+    // 2. СРАЗУ считаем результат боя в нашей копии данных
+    const dmgToOpp = myC.dmg;
+    const dmgToMe = opC.dmg;
+
+    opC.hp -= dmgToOpp;
+    myC.hp -= dmgToMe;
+    myC.exh = true; // Карта устала
+
+    // 3. Формируем объект действия для анимации
     const action = {
         id: Date.now(),
         type: 'attack',
         who: myRole,
         aIdx: selIdx,
         tIdx: tIdx,
-        dA: opC.dmg || 0,
-        dT: myC.dmg || 0
+        dA: dmgToMe,
+        dT: dmgToOpp
     };
 
-    // Сразу метим карту уставшей локально
-    myC.exh = true;
+    // 4. Очищаем погибшие карты из нашей копии
+    if (opC.hp <= 0) opp.board.splice(tIdx, 1);
+    if (myC.hp <= 0) me.board.splice(selIdx, 1);
+
+    // 5. Сбрасываем выбор в интерфейсе (локально)
     resetSel();
-    render(); 
 
-    // Отправляем сигнал об атаке
-    await update(ref(db, `games/${curRoomId}`), { action });
+    // 6. ОТПРАВЛЯЕМ ВСЁ В БАЗУ ОДНИМ ПАКЕТОМ
+    // Мы отправляем и обновленное здоровье, и сигнал к анимации одновременно
+    await set(ref(db, `games/${curRoomId}`), { ...data, action });
 
-    // Применяем урон в базе через задержку
-    setTimeout(async () => {
-        const currentSnap = await get(ref(db, `games/${curRoomId}`));
-        const currentData = currentSnap.val();
-        if(!currentData) return;
-
-        const syncMe = currentData[myRole];
-        const syncOpp = currentData[oppRole];
-        
-        const mC = syncMe.board[selIdx];
-        const oC = syncOpp.board[tIdx];
-
-        if (mC && oC) {
-            oC.hp -= mC.dmg;
-            mC.hp -= oC.dmg;
-            mC.exh = true;
-            if (oC.hp <= 0) syncOpp.board.splice(tIdx, 1);
-            if (mC.hp <= 0) syncMe.board.splice(selIdx, 1);
-            
-            await set(ref(db, `games/${curRoomId}`), currentData);
-        }
-    }, 450);
+    // Обратите внимание: render() вызовется автоматически через onValue, 
+    // но в joinRoom у нас стоит задержка для анимации, так что всё будет плавно.
 }
 
-document.getElementById('end-turn-btn').onclick = () => {
-    const me = gameState[myRole], next = myRole === 'p1' ? 'p2' : 'p1';
-    let action = { id: Date.now() };
-    if (me.deck?.length > 0 && (me.hand || []).length < 4) {
-        if(!me.hand) me.hand = [];
+document.getElementById('end-turn-btn').onclick = async () => {
+    const data = JSON.parse(JSON.stringify(gameState));
+    const me = data[myRole];
+    const nextRole = myRole === 'p1' ? 'p2' : 'p1';
+    
+    // 1. Добор карты, если нужно
+    if (me.deck && me.deck.length > 0 && (me.hand || []).length < 4) {
+        if (!me.hand) me.hand = [];
         me.hand.push(me.deck.shift());
-        action = { id: Date.now(), type: 'draw', who: myRole };
     }
-    if (gameState[next].board) gameState[next].board.forEach(c => c.exh = false);
-    gameState.turn = next; me.played = false;
+
+    // 2. Снимаем усталость со СВОИХ карт для следующего круга
+    if (me.board) {
+        me.board.forEach(c => c.exh = false);
+    }
+
+    // 3. Меняем ход
+    data.turn = nextRole;
+    me.played = false;
+    
+    // Сбрасываем действие, чтобы не крутилось по кругу
+    data.action = { id: Date.now(), type: 'end_turn' };
+
     resetSel();
-    update(ref(db, `games/${curRoomId}`), { ...gameState, action });
+    await set(ref(db, `games/${curRoomId}`), data);
 };
 
 function createCardUI(c) {
