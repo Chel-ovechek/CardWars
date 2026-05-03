@@ -124,39 +124,61 @@ window.joinRoom = async (id, pass) => {
 
 function render() {
     if (!gameState || !myRole) return;
-    const me = gameState[myRole], oppRole = myRole === 'p1' ? 'p2' : 'p1', opp = gameState[oppRole];
+    const me = gameState[myRole];
+    const oppRole = myRole === 'p1' ? 'p2' : 'p1';
+    const opp = gameState[oppRole];
+    if (!me || !opp) return; // Защита от пустых данных
+
     const isTurn = gameState.turn === myRole;
 
+    // Обновление счетчиков колод
     document.getElementById('opp-count').innerText = opp.deck?.length || 0;
     document.getElementById('my-count').innerText = me.deck?.length || 0;
     
+    // Баннер хода
     const banner = document.getElementById('turn-message');
     banner.innerText = isTurn ? "ВАШ ХОД" : "ХОД ПРОТИВНИКА";
     banner.className = isTurn ? "active" : "";
-    document.getElementById('end-turn-btn').disabled = !isTurn;
 
-    // Рука
+    // Кнопка хода теперь активна всегда, когда ваш черед (даже без карт в руке)
+    const turnBtn = document.getElementById('end-turn-btn');
+    if (turnBtn) turnBtn.disabled = !isTurn;
+
+    // Отрисовка руки
     const handDiv = document.getElementById('player-hand');
     handDiv.innerHTML = '';
-    (me.hand || []).forEach((c, i) => {
+    const myHand = me.hand || [];
+    myHand.forEach((c, i) => {
         const el = createCardUI(c);
-        if (isTurn) el.onclick = () => { selIdx = i; selFrom = 'hand'; render(); };
+        if (isTurn) {
+            // Обычный клик для выбора
+            el.onclick = (e) => { 
+                e.stopPropagation(); 
+                selIdx = i; 
+                selFrom = 'hand'; 
+                render(); 
+            };
+            // ВКЛЮЧАЕМ ДРАГ-ЭН-ДРОП для каждой карты
+            initPointerDrag(el, i); 
+        }
         if (selFrom === 'hand' && selIdx === i) el.classList.add('selected');
         handDiv.appendChild(el);
     });
 
-    // Поля
+    // Отрисовка полей боя
     renderBoard('opp-board', opp.board || [], true, isTurn);
     renderBoard('my-board', me.board || [], false, isTurn);
 
-    // Логика выкладывания на поле
+    // Логика зоны сброса (подсветка поля)
     const pb = document.getElementById('my-board');
-    if (isTurn && selFrom === 'hand') {
-        pb.classList.add('can-drop');
-        pb.onclick = playToBoard;
-    } else {
-        pb.classList.remove('can-drop');
-        pb.onclick = null;
+    if (pb) {
+        if (isTurn && selFrom === 'hand') {
+            pb.classList.add('can-drop');
+            pb.onclick = playToBoard; // Клик по полю тоже выложит карту
+        } else {
+            pb.classList.remove('can-drop');
+            pb.onclick = null;
+        }
     }
 }
 
@@ -198,26 +220,87 @@ async function attack(tIdx) {
     await set(ref(db, `games/${curRoomId}`), { ...data, action });
 }
 
+function initPointerDrag(el, idx) {
+    el.onpointerdown = (e) => {
+        if (gameState.turn !== myRole) return;
+        
+        selIdx = idx; selFrom = 'hand';
+        const rect = el.getBoundingClientRect();
+        const shiftX = e.clientX - rect.left;
+        const shiftY = e.clientY - rect.top;
+
+        el.classList.add('dragging');
+        el.style.width = rect.width + 'px';
+        el.style.height = rect.height + 'px';
+        el.style.left = rect.left + 'px';
+        el.style.top = rect.top + 'px';
+        el.style.position = 'fixed';
+
+        const move = (me) => {
+            el.style.left = (me.clientX - shiftX) + 'px';
+            el.style.top = (me.clientY - shiftY) + 'px';
+        };
+
+        const up = (ue) => {
+            document.removeEventListener('pointermove', move);
+            document.removeEventListener('pointerup', up);
+            el.classList.remove('dragging');
+            el.style.position = ''; // Возвращаем в поток для расчета
+
+            const board = document.getElementById('my-board');
+            const bRect = board.getBoundingClientRect();
+            
+            // Проверка: отпустили ли над своим полем
+            if (ue.clientX > bRect.left && ue.clientX < bRect.right &&
+                ue.clientY > bRect.top && ue.clientY < bRect.bottom) {
+                playToBoard();
+            } else {
+                render(); 
+            }
+        };
+        document.addEventListener('pointermove', move);
+        document.addEventListener('pointerup', up);
+    };
+}
+
 async function playToBoard() {
-    if (selIdx === null || selFrom !== 'hand') return;
+    if (selIdx === null || selFrom !== 'hand' || !gameState[myRole].hand) return;
+    
     const data = JSON.parse(JSON.stringify(gameState));
     const me = data[myRole];
+    
     const card = me.hand.splice(selIdx, 1)[0];
+    if (!card) return;
+
     card.exh = false; 
     if (!me.board) me.board = [];
     me.board.push(card);
     me.played = true;
+    
     resetSel();
     await set(ref(db, `games/${curRoomId}`), data);
 }
 
 document.getElementById('end-turn-btn').onclick = async () => {
+    if (!gameState || gameState.turn !== myRole) return; // Защита
+    
     const data = JSON.parse(JSON.stringify(gameState));
     const me = data[myRole];
-    if (me.deck?.length > 0 && (me.hand || []).length < 4) me.hand.push(me.deck.shift());
+    
+    // 1. Инициализируем руку, если её нет
+    if (!me.hand) me.hand = [];
+    
+    // 2. Добор карты (если колода не пуста и в руке меньше 4)
+    if (me.deck && me.deck.length > 0 && me.hand.length < 4) {
+        me.hand.push(me.deck.shift());
+    }
+    
+    // 3. Снимаем усталость
     if (me.board) me.board.forEach(c => c.exh = false);
+    
     data.turn = myRole === 'p1' ? 'p2' : 'p1';
-    data.action = { id: Date.now(), type: 'draw' };
+    data.action = { id: Date.now(), type: 'draw' }; // Тип draw для анимации у врага
+    
     resetSel();
     await set(ref(db, `games/${curRoomId}`), data);
 };
