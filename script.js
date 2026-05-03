@@ -23,10 +23,15 @@ onValue(ref(db, 'games'), (s) => {
     const rooms = s.val(); if (!rooms) return;
     Object.keys(rooms).forEach(id => {
         const r = rooms[id];
-        if (!r.p1?.dev && !r.p2?.dev) { remove(ref(db, `games/${id}`)); return; }
         const div = document.createElement('div');
         div.className = 'room-item';
-        div.innerHTML = `<span><b>${r.name || 'БИТВА'}</b> [${r.deckSize}]</span><button class="mega-btn primary" style="width:100px; padding:10px; font-size:1rem" onclick="joinRoom('${id}', '${r.pass}')">В БОЙ</button>`;
+        div.innerHTML = `
+            <div class="room-info">
+                <span class="room-name">${r.name || 'БИТВА'}</span>
+                <span class="room-meta">КОЛОДА: ${r.deckSize} | КАРТ: ${r.p1.board?.length || 0}</span>
+            </div>
+            <button class="mega-btn primary" style="width:80px; padding:8px; font-size:0.9rem" onclick="joinRoom('${id}', '${r.pass}')">ВХОД</button>
+        `;
         list.appendChild(div);
     });
 });
@@ -146,18 +151,18 @@ function renderBoard(id, board, isOpp, isTurn) {
     
     board.forEach((c, i) => {
         const el = createCardUI(c);
-        el.id = `${id}-${i}`; // Критично для анимации!
+        el.id = `${id}-${i}`;
+
+        if (c.exh) el.classList.add('exhausted');
 
         if (!isOpp && isTurn && !c.exh) {
-            // Клик по своей карте на поле
             el.onclick = (e) => {
                 e.stopPropagation();
                 selIdx = i;
-                selFrom = 'board'; // Убеждаемся, что режим - БОЙ
+                selFrom = 'board';
                 render();
             };
         } else if (isOpp && selFrom === 'board') {
-            // Клик по врагу (только если выбрана своя карта на поле)
             el.classList.add('can-attack');
             el.onclick = (e) => {
                 e.stopPropagation();
@@ -169,7 +174,6 @@ function renderBoard(id, board, isOpp, isTurn) {
         div.appendChild(el);
     });
 }
-
 // --- УНИВЕРСАЛЬНЫЙ DRAG ---
 function initPointerDrag(el, idx) {
     el.onpointerdown = (e) => {
@@ -311,19 +315,18 @@ async function playToBoard() {
 async function attack(tIdx) {
     if (selIdx === null || selFrom !== 'board') return;
 
-    const me = gameState[myRole];
+    // КЛОНИРУЕМ текущее состояние для расчетов, чтобы не зависеть от лагов сети
+    const data = JSON.parse(JSON.stringify(gameState));
+    const me = data[myRole];
     const oppRole = myRole === 'p1' ? 'p2' : 'p1';
-    const opp = gameState[oppRole];
+    const opp = data[oppRole];
 
     const myC = me.board[selIdx];
     const opC = opp.board[tIdx];
 
-    if (!myC || !opC) {
-        console.error("Карта не найдена:", {myC, opC});
-        return;
-    }
+    if (!myC || !opC || myC.exh) return;
 
-    // 1. Сразу шлем сигнал анимации всем (включая себя)
+    // СИГНАЛ АНИМАЦИИ (отправляем в базу текущее состояние + инфо об атаке)
     const action = {
         id: Date.now(),
         type: 'attack',
@@ -334,34 +337,25 @@ async function attack(tIdx) {
         dT: myC.dmg || 0
     };
 
-    // Обновляем только поле action, чтобы запустить handleActionAnimation
+    // Мгновенно помечаем у себя карту как уставшую и сбрасываем выбор
+    myC.exh = true; 
+    resetSel(); 
+    render(); // Перерисовываем экран сразу, чтобы кнопка атаки исчезла
+
+    // Отправляем в Firebase
     await update(ref(db, `games/${curRoomId}`), { action });
 
-    // 2. Ждем пока проиграется прыжок (300-400мс) и считаем урон
+    // Расчет урона через паузу
     setTimeout(async () => {
-        // Повторно получаем свежие данные перед расчетом
-        const snap = await get(ref(db, `games/${curRoomId}`));
-        const data = snap.val();
-        if (!data) return;
+        opC.hp -= myC.dmg;
+        myC.hp -= opC.dmg;
 
-        let currentMe = data[myRole];
-        let currentOpp = data[oppRole];
+        if (opC.hp <= 0) opp.board.splice(tIdx, 1);
+        if (myC.hp <= 0) me.board.splice(selIdx, 1);
 
-        let mCard = currentMe.board[selIdx];
-        let oCard = currentOpp.board[tIdx];
-
-        if (mCard && oCard) {
-            oCard.hp -= mCard.dmg;
-            mCard.hp -= oCard.dmg;
-
-            if (oCard.hp <= 0) currentOpp.board.splice(tIdx, 1);
-            if (mCard.hp <= 0) currentMe.board.splice(selIdx, 1);
-            else mCard.exh = true; // Усталость
-        }
-
-        resetSel();
+        // Обновляем всю базу финальным результатом боя
         await set(ref(db, `games/${curRoomId}`), data);
-    }, 400);
+    }, 450);
 }
 
 document.getElementById('end-turn-btn').onclick = () => {
@@ -380,8 +374,13 @@ document.getElementById('end-turn-btn').onclick = () => {
 
 function createCardUI(c) {
     const div = document.createElement('div');
-    div.className = 'card'; div.style.backgroundColor = [null, '#3498db', '#2ecc71', '#e67e22', '#e74c3c'][c.power];
-    div.innerHTML = `<div class="c-val c-top">⚔️${c.power}</div><div class="c-val c-bot">❤️${c.hp}</div>`;
+    div.className = 'card'; 
+    div.style.backgroundColor = [null, '#3498db', '#2ecc71', '#e67e22', '#e74c3c'][c.power];
+    // Добавим font-size поменьше для мобилок
+    div.innerHTML = `
+        <div class="c-val c-top" style="font-size: 1.4rem;">${c.power}⚔️</div>
+        <div class="c-val c-bot" style="font-size: 1.4rem;">${c.hp}❤️</div>
+    `;
     return div;
 }
 

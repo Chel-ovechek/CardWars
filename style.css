@@ -1,8 +1,9 @@
 :root {
     --blue: #3498db; --green: #2ecc71; --orange: #e67e22; --red: #e74c3c;
-    --card-w: 24vw; --card-h: 36vw;
+    /* Уменьшили карты: было 24vw, стало 18vw */
+    --card-w: 18vw; --card-h: 28vw; 
 }
-@media (min-width: 600px) { :root { --card-w: 110px; --card-h: 160px; } }
+@media (min-width: 600px) { :root { --card-w: 90px; --card-h: 130px; } }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
 body { background: #000; color: #fff; font-family: 'Arial Black', sans-serif; margin: 0; padding: 0; height: 100dvh; width: 100vw; overflow: hidden; position: fixed; }
@@ -16,6 +17,28 @@ body { background: #000; color: #fff; font-family: 'Arial Black', sans-serif; ma
 .success { background: var(--green); }
 .danger { background: #444; }
 .mega-input { padding: 15px; font-size: 1.2rem; border-radius: 12px; background: #1a1a1a; border: 2px solid #333; color: #fff; text-align: center; }
+/* Стилизация списка комнат */
+#rooms-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 20px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+.room-item {
+    background: #1a1a1a;
+    border: 1px solid #333;
+    padding: 15px;
+    border-radius: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.room-info { display: flex; flex-direction: column; gap: 4px; }
+.room-name { color: #f1c40f; font-weight: bold; font-size: 1.1rem; }
+.room-meta { color: #888; font-size: 0.8rem; }
+
 
 /* КНОПКИ ВЫБОРА КОЛОДЫ */
 .deck-row { display: flex; gap: 10px; width: 100%; }
@@ -38,6 +61,18 @@ body { background: #000; color: #fff; font-family: 'Arial Black', sans-serif; ma
 #turn-message.active { color: #f1c40f; background: #222; }
 
 .hand-row { height: 23%; display: flex; justify-content: center; align-items: center; gap: 6px; background: #050505; padding: 0 10px; }
+
+.mini-btn {
+    background: #444;
+    color: #fff;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 8px;
+    font-weight: bold;
+    font-family: 'Arial Black', sans-serif;
+    cursor: pointer;
+}
+.mini-btn:active { background: var(--red); }
 
 /* КАРТЫ */
 .card { 
@@ -89,6 +124,23 @@ body { background: #000; color: #fff; font-family: 'Arial Black', sans-serif; ma
     animation: attack-pulse 0.8s infinite; 
 }
 .card.selected { transform: translateY(-30px); border-color: #fff; z-index: 100; }
+/* Вид уставшей карты */
+.card.exhausted {
+    filter: grayscale(1) brightness(0.5);
+    opacity: 0.7;
+    pointer-events: none; /* Нельзя нажать */
+}
+
+/* Контейнеры полей, чтобы не вылезало */
+.battle-grid {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+    padding: 5px;
+    flex-wrap: nowrap; /* Карты сжимаются, но не вылетают */
+}
 .battle-grid.player.can-drop { background: rgba(46, 204, 113, 0.1); border: 2px dashed var(--green); }
 
 /* ЭФФЕКТЫ */
