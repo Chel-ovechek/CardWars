@@ -1,63 +1,130 @@
 :root {
     --blue: #3498db; --green: #2ecc71; --orange: #e67e22; --red: #e74c3c;
-    --card-w: 26vw; --card-h: 38vw;
+    --card-w: 24vw; --card-h: 36vw;
 }
 @media (min-width: 600px) { :root { --card-w: 110px; --card-h: 160px; } }
 
-body { background: #000; color: #fff; font-family: sans-serif; margin: 0; padding: 0; height: 100dvh; width: 100vw; overflow: hidden; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+body { background: #000; color: #fff; font-family: 'Arial Black', sans-serif; margin: 0; padding: 0; height: 100dvh; width: 100vw; overflow: hidden; position: fixed; }
 
 /* ЛОББИ */
-.screen { position: fixed; inset: 0; background: #111; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+.screen { position: fixed; inset: 0; background: #0f0f0f; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
 .logo { font-size: 2.5rem; color: #f1c40f; margin-bottom: 20px; }
-.menu-box { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 12px; }
-
-.menu-btn { padding: 20px; font-size: 1.2rem; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; color: #fff; }
+.menu-box { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 10px; }
+.mega-btn { padding: 20px; font-size: 1.4rem; border: none; border-radius: 15px; font-weight: bold; cursor: pointer; color: #fff; }
 .primary { background: var(--blue); }
 .success { background: var(--green); }
-.cancel { background: #444; }
-.mega-input { padding: 15px; font-size: 1.2rem; border-radius: 10px; border: 2px solid #333; background: #000; color: #fff; text-align: center; }
+.danger { background: #444; }
+.mega-input { padding: 15px; font-size: 1.2rem; border-radius: 12px; background: #1a1a1a; border: 2px solid #333; color: #fff; text-align: center; }
 
-.deck-row { display: flex; gap: 8px; }
-.deck-btn { flex: 1; padding: 15px; background: #222; border: 2px solid #444; color: #fff; border-radius: 10px; font-weight: bold; }
-.deck-btn.active { border-color: var(--blue); background: #004488; }
+/* КНОПКИ ВЫБОРА КОЛОДЫ */
+.deck-row { display: flex; gap: 10px; width: 100%; }
+.deck-btn { flex: 1; padding: 15px; background: #222; border: 3px solid #444; color: #fff; border-radius: 12px; font-weight: bold; font-size: 1.2rem; cursor: pointer; }
+.deck-btn.active { border-color: var(--blue); background: #004488; box-shadow: 0 0 15px var(--blue); }
 
-.room-item { background: #1a1a1a; padding: 15px; border-radius: 12px; border: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
-
-/* ИГРА (СЕТКА) */
+/* ГЕЙМПЛЕЙ */
 #game-container { height: 100dvh; display: flex; flex-direction: column; }
-.top-bar { height: 50px; display: flex; justify-content: space-between; align-items: center; padding: 0 15px; background: #111; }
-.bot-bar { height: 70px; display: flex; justify-content: space-between; align-items: center; padding: 0 15px; background: #111; }
+.ui-header, .ui-footer { height: 12%; display: flex; justify-content: space-between; align-items: center; padding: 0 10px; background: #111; }
 
-.battle-field { flex: 1; display: flex; justify-content: center; align-items: center; gap: 8px; }
-.battle-field.can-drop { background: rgba(46,204,113,0.1); border: 2px dashed var(--green); }
+.deck-pile { position: relative; width: 50px; height: 70px; }
+.deck-cover { width: 100%; height: 100%; border-radius: 6px; border: 2px solid #555; background: linear-gradient(135deg, #2c3e50, #000); box-shadow: 2px 2px 0 #000; }
+.deck-label { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; font-weight: bold; color: #f1c40f; }
 
-#turn-banner { height: 35px; line-height: 35px; text-align: center; font-size: 1.1rem; background: #1a1a1a; color: #555; }
-#turn-banner.active { color: #f1c40f; background: #222; }
+.opp-hand-row { display: flex; gap: 2px; height: 100%; align-items: center; }
+.c-mini-back { width: 20px; height: 35px; background: #2c3e50; border: 1px solid #444; border-radius: 4px; }
 
-.hand-zone { height: 160px; display: flex; justify-content: center; align-items: center; gap: 8px; padding: 0 10px; background: #050505; overflow-x: auto; }
+.battle-grid { flex: 1; display: flex; justify-content: center; align-items: center; gap: 8px; }
+#turn-message { height: 35px; line-height: 35px; text-align: center; font-size: 1rem; font-weight: bold; background: #1a1a1a; color: #555; }
+#turn-message.active { color: #f1c40f; background: #222; }
 
-/* КАРТЫ (ЦВЕТНЫЕ) */
-.card { width: var(--card-w); height: var(--card-h); border-radius: 10px; overflow: hidden; border: 3px solid #000; display: flex; flex-direction: column; flex-shrink: 0; transition: 0.2s; }
-.c-half { height: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; font-weight: bold; color: #fff; }
-.c-half.t { background: rgba(0,0,0,0.2); border-bottom: 1px solid rgba(255,255,255,0.1); }
+.hand-row { height: 23%; display: flex; justify-content: center; align-items: center; gap: 6px; background: #050505; padding: 0 10px; }
 
-.card[data-p="1"] { background: var(--blue); }
-.card[data-p="2"] { background: var(--green); }
-.card[data-p="3"] { background: var(--orange); }
-.card[data-p="4"] { background: var(--red); }
+/* КАРТЫ */
+.card { 
+    width: var(--card-w); 
+    height: var(--card-h); 
+    border-radius: 10px; 
+    border: 3.5px solid #000; 
+    display: flex; 
+    flex-direction: column; 
+    overflow: hidden; 
+    flex-shrink: 0; 
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), 
+                box-shadow 0.2s, 
+                opacity 0.2s;
+    will-change: transform; /* Подсказка браузеру для плавности */
+    touch-action: none; /* Отключает стандартный скролл браузера при перетаскивании */
+    position: relative; 
+    opacity: 1 !important;
+    filter: none !important;
+    border-style: solid !important;
+}
+.dragging {
+    transition: none !important;
+    z-index: 10000 !important;
+    pointer-events: none; /* Важно: чтобы под картой можно было поймать событие поля */
+    box-shadow: 0 15px 30px rgba(0,0,0,0.5) !important;
+}
+.c-val { 
+    height: 50%; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    font-size: 2.2rem; 
+    font-weight: bold; 
+    color: #fff; 
+    text-shadow: 0 2px 4px #000;
+    width: 100%; /* Добавлено для центрирования */
+}
+.c-top { background: rgba(0,0,0,0.15); border-bottom: 2px solid rgba(255,255,255,0.05); }
 
-.card.selected { transform: translateY(-20px); border-color: #fff; box-shadow: 0 0 20px #fff; z-index: 100; }
-.card.can-go { border-color: #fff; }
-.card.can-attack { border-color: #f1c40f; animation: pulse 0.8s infinite; }
-.card.exhausted { opacity: 0.5; filter: grayscale(0.5); }
+/* ПОДСВЕТКА */
+.card.can-go { 
+    box-shadow: 0 0 20px #fff; 
+    border-color: #fff; 
+}
+.card.can-attack { 
+    box-shadow: 0 0 25px var(--red); 
+    border-color: var(--red); 
+    animation: attack-pulse 0.8s infinite; 
+}
+.card.selected { transform: translateY(-30px); border-color: #fff; z-index: 100; }
+.battle-grid.player.can-drop { background: rgba(46, 204, 113, 0.1); border: 2px dashed var(--green); }
 
-@keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+/* ЭФФЕКТЫ */
+#anim-layer { position: fixed; inset: 0; pointer-events: none; z-index: 9999; }
+.flying { position: absolute; width: 60px; height: 85px; border-radius: 8px; border: 2px solid #fff; z-index: 10000; transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+.damage-pop {
+    position: fixed;
+    color: #ff4757;
+    font-size: 3rem;
+    font-weight: 900;
+    text-shadow: 0 0 10px #000;
+    pointer-events: none;
+    z-index: 10001;
+    transform: translate(-50%, -50%); /* Центр */
+    animation: floatUp 1s ease-out forwards;
+}
 
-#end-turn-btn { padding: 12px 25px; font-size: 1.2rem; background: var(--green); border: none; border-radius: 10px; color: #fff; font-weight: bold; }
-#end-turn-btn:disabled { background: #333; color: #666; }
+@keyframes floatUp {
+    0% { transform: translate(-50%, -50%) scale(0.5); opacity: 1; }
+    100% { transform: translate(-50%, -200%) scale(1.5); opacity: 0; }
+}
+@keyframes shake-anim { 0%, 100% { transform: scale(1); } 50% { transform: scale(0.85); background-color: #fff !important; } }
+.shake {
+    animation: hit-flash 0.4s ease-out;
+}
+@keyframes hit-flash {
+    0% { filter: brightness(1); transform: scale(1); }
+    50% { filter: brightness(3); transform: scale(0.9); background-color: #fff !important; }
+    100% { filter: brightness(1); transform: scale(1); }
+}
+@keyframes attack-pulse { 
+    0% { transform: scale(1); } 
+    50% { transform: scale(1.05); } 
+    100% { transform: scale(1); } 
+}
 
-/* ФИНАЛ */
-.plaque { background: #222; padding: 30px; border-radius: 20px; border: 5px solid #444; text-align: center; }
-.plaque.win { border-color: var(--green); }
-.plaque.lose { border-color: var(--red); }
-#end-txt { font-size: 2.5rem; margin-bottom: 20px; }
+.huge-circle-btn { width: 80px; height: 80px; border-radius: 50%; background: var(--green); border: 5px solid #000; color: #fff; font-weight: bold; font-size: 1rem; box-shadow: 0 4px 10px rgba(0,0,0,0.5); flex-shrink: 0; cursor: pointer; }
+.huge-circle-btn:disabled { background: #333; color: #666; box-shadow: none; cursor: default; }
+.plaque { background: #222; padding: 30px; border-radius: 25px; border: 4px solid var(--blue); text-align: center; }

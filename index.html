@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>CardWars</title>
+    <title>CardWars: Mobile Strike</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div id="lobby-screen" class="screen">
         <h1 class="logo">CARD WARS</h1>
         <div id="lobby-main" class="menu-box">
-            <button class="menu-btn primary" onclick="showCreateForm()">НОВАЯ ИГРА</button>
+            <button class="mega-btn primary" onclick="showCreateForm()">НОВАЯ ИГРА</button>
             <div id="rooms-list"></div>
         </div>
         <div id="create-form" class="menu-box" style="display:none;">
@@ -21,32 +21,46 @@
                 <button id="d36" class="deck-btn" onclick="setDeckSize(36)">36</button>
                 <button id="d52" class="deck-btn active" onclick="setDeckSize(52)">52</button>
             </div>
-            <button class="menu-btn success" onclick="confirmCreate()">СОЗДАТЬ</button>
-            <button class="menu-btn cancel" onclick="hideCreateForm()">ОТМЕНА</button>
+            <button class="mega-btn success" onclick="confirmCreate()">СОЗДАТЬ</button>
+            <button class="mega-btn danger" onclick="hideCreateForm()">ОТМЕНА</button>
         </div>
     </div>
 
     <div id="game-container" style="display: none;">
-        <div class="top-bar">
-            <span>ВРАГ: 🎴 <span id="opp-count">0</span></span>
-            <button class="exit-btn" onclick="exitToLobby()">ВЫХОД</button>
+        <div id="anim-layer"></div>
+
+        <div class="ui-header">
+            <div class="deck-pile" id="opp-deck-pos">
+                <div class="deck-cover"></div>
+                <div class="deck-label" id="opp-count">0</div>
+            </div>
+            <div id="opp-hand" class="opp-hand-row"></div>
+            <button class="mini-btn" onclick="exitToLobby()">ВЫХОД</button>
         </div>
-        <div id="opp-board" class="battle-field"></div>
-        <div id="turn-banner">...</div>
-        <div id="my-board" class="battle-field"></div>
-        <div id="player-hand" class="hand-zone"></div>
-        <div class="bot-bar">
-            <span>КОЛОДА: <span id="my-count">0</span></span>
-            <button id="end-turn-btn" disabled>ХОД</button>
+
+        <div id="opp-board" class="battle-grid enemy"></div>
+        <div id="turn-message">ОЖИДАНИЕ...</div>
+        <div id="my-board" class="battle-grid player"></div>
+
+        <div id="player-hand" class="hand-row"></div>
+
+        <div class="ui-footer">
+            <div class="deck-pile" id="my-deck-pos">
+                <div class="deck-cover"></div>
+                <div class="deck-label" id="my-count">0</div>
+            </div>
+            <div class="footer-hint">ВАША РУКА</div>
+            <button id="end-turn-btn" class="huge-circle-btn" disabled>ХОД</button>
         </div>
     </div>
 
-    <div id="end-screen" class="screen" style="display:none; background: rgba(0,0,0,0.9);">
-        <div id="end-plaque" class="plaque">
+    <div id="end-screen" class="screen" style="display:none; background: rgba(0,0,0,0.95);">
+        <div class="plaque">
             <h1 id="end-txt"></h1>
-            <button class="menu-btn success" onclick="location.reload()">В МЕНЮ</button>
+            <button class="mega-btn primary" onclick="location.reload()">МЕНЮ</button>
         </div>
     </div>
+
     <script type="module" src="script.js"></script>
 </body>
 </html>
