@@ -127,67 +127,48 @@ function render() {
     const me = gameState[myRole];
     const oppRole = myRole === 'p1' ? 'p2' : 'p1';
     const opp = gameState[oppRole];
-    if (!me || !opp) return; // Защита от пустых данных
+    if (!me || !opp) return;
 
     const isTurn = gameState.turn === myRole;
 
-    const canEndTurn = isTurn && (me.played || (me.hand || []).length === 0);
-
-    const turnBtn = document.getElementById('end-turn-btn');
-    if (turnBtn) {
-        turnBtn.disabled = !canEndTurn;
-    }
-    // Обновление счетчиков колод
     document.getElementById('opp-count').innerText = opp.deck?.length || 0;
     document.getElementById('my-count').innerText = me.deck?.length || 0;
     
-    // Баннер хода
     const banner = document.getElementById('turn-message');
     banner.innerText = isTurn ? "ВАШ ХОД" : "ХОД ПРОТИВНИКА";
     banner.className = isTurn ? "active" : "";
 
-    // Кнопка хода теперь активна всегда, когда ваш черед (даже без карт в руке)
-    const turnBtn = document.getElementById('end-turn-btn');
-    if (turnBtn) turnBtn.disabled = !isTurn;
+    // ПРАВИЛО: Кнопка активна, если ваш ход И (вы выложили карту ИЛИ рука пуста)
+    const canEndTurn = isTurn && (me.played || (me.hand || []).length === 0);
+    const endBtn = document.getElementById('end-turn-btn');
+    if (endBtn) endBtn.disabled = !canEndTurn;
 
-    // Отрисовка руки
     const handDiv = document.getElementById('player-hand');
     handDiv.innerHTML = '';
-    const myHand = me.hand || [];
-    myHand.forEach((c, i) => {
+    (me.hand || []).forEach((c, i) => {
         const el = createCardUI(c);
         if (isTurn) {
-            // Обычный клик для выбора
-            el.onclick = (e) => { 
-                e.stopPropagation(); 
-                selIdx = i; 
-                selFrom = 'hand'; 
-                render(); 
-            };
-            // ВКЛЮЧАЕМ ДРАГ-ЭН-ДРОП для каждой карты
+            el.onclick = (e) => { e.stopPropagation(); selIdx = i; selFrom = 'hand'; render(); };
             initPointerDrag(el, i); 
         }
         if (selFrom === 'hand' && selIdx === i) el.classList.add('selected');
         handDiv.appendChild(el);
     });
 
-    // Отрисовка полей боя
     renderBoard('opp-board', opp.board || [], true, isTurn);
     renderBoard('my-board', me.board || [], false, isTurn);
 
-    // Логика зоны сброса (подсветка поля)
     const pb = document.getElementById('my-board');
     if (pb) {
         if (isTurn && selFrom === 'hand') {
             pb.classList.add('can-drop');
-            pb.onclick = playToBoard; // Клик по полю тоже выложит карту
+            pb.onclick = playToBoard;
         } else {
             pb.classList.remove('can-drop');
             pb.onclick = null;
         }
     }
 }
-
 function renderBoard(id, board, isOpp, isTurn) {
     const div = document.getElementById(id); div.innerHTML = '';
     board.forEach((c, i) => {
@@ -271,42 +252,32 @@ function initPointerDrag(el, idx) {
 
 async function playToBoard() {
     if (selIdx === null || selFrom !== 'hand') return;
-    
     const data = JSON.parse(JSON.stringify(gameState));
     const me = data[myRole];
-    
     if (!me.hand || !me.hand[selIdx]) return;
 
     const card = me.hand.splice(selIdx, 1)[0];
     card.exh = false; 
-    
     if (!me.board) me.board = [];
     me.board.push(card);
     
-    // ОТМЕЧАЕМ, ЧТО ИГРОК СДЕЛАЛ ХОД
-    me.played = true; 
+    me.played = true; // Фиксируем, что карта выложена
     
     resetSel();
     await set(ref(db, `games/${curRoomId}`), data);
 }
 document.getElementById('end-turn-btn').onclick = async () => {
     if (!gameState || gameState.turn !== myRole) return;
-    
     const data = JSON.parse(JSON.stringify(gameState));
     const me = data[myRole];
     
-    // 1. Добор карты
-    if (me.deck && me.deck.length > 0 && (me.hand || []).length < 4) {
+    if (me.deck?.length > 0 && (me.hand || []).length < 4) {
         if (!me.hand) me.hand = [];
         me.hand.push(me.deck.shift());
     }
-    
-    // 2. Снимаем усталость со своих карт
     if (me.board) me.board.forEach(c => c.exh = false);
     
-    // 3. СБРАСЫВАЕМ ФЛАГ ХОДА ДЛЯ СЛЕДУЮЩЕГО РАЗА
-    me.played = false; 
-
+    me.played = false; // Сброс флага для следующего хода
     data.turn = myRole === 'p1' ? 'p2' : 'p1';
     data.action = { id: Date.now(), type: 'draw', who: myRole };
     
