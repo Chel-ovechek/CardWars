@@ -19,14 +19,17 @@ let lastActionId = 0, prevHandLen = 0;
 // --- ЛОББИ ---
 onValue(ref(db, 'games'), (s) => {
     const list = document.getElementById('rooms-list');
-    if(!list) return;
+    if (!list) return;
     list.innerHTML = '';
     const rooms = s.val();
     if (!rooms) return;
 
     Object.keys(rooms).forEach(id => {
         const r = rooms[id];
-        const isFull = r.p1.dev !== "" && r.p2.dev !== "";
+        // ЗАЩИТА: Если данных игрока нет, пропускаем эту итерацию, чтобы не было ошибки
+        if (!r || !r.p1 || !r.p2) return; 
+
+        const isFull = (r.p1.dev && r.p1.dev !== "") && (r.p2.dev && r.p2.dev !== "");
         const div = document.createElement('div');
         div.className = 'room-item';
         div.innerHTML = `
@@ -42,6 +45,7 @@ onValue(ref(db, 'games'), (s) => {
         list.appendChild(div);
     });
 });
+
 window.showCreateForm = () => { document.getElementById('lobby-main').style.display='none'; document.getElementById('create-form').style.display='flex'; };
 window.hideCreateForm = () => { document.getElementById('lobby-main').style.display='flex'; document.getElementById('create-form').style.display='none'; };
 window.setDeckSize = (size) => { 
@@ -77,10 +81,10 @@ window.joinRoom = async (id, pass) => {
 
     curRoomId = id;
 
-    // Определяем роль: если ты уже был в этой комнате, или если место свободно
-    if (d.p1.dev === deviceId) {
+    // ЛОГИКА РОЛЕЙ:
+    if (d.p1 && d.p1.dev === deviceId) {
         myRole = 'p1';
-    } else if (d.p2.dev === deviceId) {
+    } else if (d.p2 && d.p2.dev === deviceId) {
         myRole = 'p2';
     } else if (!d.p1.dev || d.p1.dev === "") {
         myRole = 'p1';
@@ -93,21 +97,20 @@ window.joinRoom = async (id, pass) => {
         return;
     }
 
-    // Обработка автоматического выхода при закрытии вкладки
-    onDisconnect(ref(db, `games/${id}/${myRole}/dev`)).set("");
-
+    // Слушаем обновления комнаты
     onValue(roomRef, (s) => {
         const data = s.val();
         if (!data) return;
-        
-        // Анимации
+
+        // Обработка анимаций
         if (data.action && data.action.id > lastActionId) {
             handleActionAnimation(data.action);
             lastActionId = data.action.id;
-            if (data.action.type === 'attack' || data.action.type === 'play') {
-                gameState = data; 
-                setTimeout(() => render(), 500); 
-                return; 
+            // Если была атака, даем время анимации перед рендером
+            if (data.action.type === 'attack') {
+                gameState = data;
+                setTimeout(() => render(), 600);
+                return;
             }
         }
 
@@ -342,8 +345,8 @@ async function playToBoard() {
 
 async function attack(tIdx) {
     if (selIdx === null || selFrom !== 'board') return;
+    if (gameState.turn !== myRole) return; // ЗАЩИТА: только в свой ход
 
-    // КЛОНИРУЕМ текущее состояние для расчетов, чтобы не зависеть от лагов сети
     const data = JSON.parse(JSON.stringify(gameState));
     const me = data[myRole];
     const oppRole = myRole === 'p1' ? 'p2' : 'p1';
@@ -354,7 +357,6 @@ async function attack(tIdx) {
 
     if (!myC || !opC || myC.exh) return;
 
-    // СИГНАЛ АНИМАЦИИ (отправляем в базу текущее состояние + инфо об атаке)
     const action = {
         id: Date.now(),
         type: 'attack',
@@ -365,24 +367,35 @@ async function attack(tIdx) {
         dT: myC.dmg || 0
     };
 
-    // Мгновенно помечаем у себя карту как уставшую и сбрасываем выбор
-    myC.exh = true; 
-    resetSel(); 
-    render(); // Перерисовываем экран сразу, чтобы кнопка атаки исчезла
+    // Сразу метим карту уставшей локально
+    myC.exh = true;
+    resetSel();
+    render(); 
 
-    // Отправляем в Firebase
+    // Отправляем сигнал об атаке
     await update(ref(db, `games/${curRoomId}`), { action });
 
-    // Расчет урона через паузу
+    // Применяем урон в базе через задержку
     setTimeout(async () => {
-        opC.hp -= myC.dmg;
-        myC.hp -= opC.dmg;
+        const currentSnap = await get(ref(db, `games/${curRoomId}`));
+        const currentData = currentSnap.val();
+        if(!currentData) return;
 
-        if (opC.hp <= 0) opp.board.splice(tIdx, 1);
-        if (myC.hp <= 0) me.board.splice(selIdx, 1);
+        const syncMe = currentData[myRole];
+        const syncOpp = currentData[oppRole];
+        
+        const mC = syncMe.board[selIdx];
+        const oC = syncOpp.board[tIdx];
 
-        // Обновляем всю базу финальным результатом боя
-        await set(ref(db, `games/${curRoomId}`), data);
+        if (mC && oC) {
+            oC.hp -= mC.dmg;
+            mC.hp -= oC.dmg;
+            mC.exh = true;
+            if (oC.hp <= 0) syncOpp.board.splice(tIdx, 1);
+            if (mC.hp <= 0) syncMe.board.splice(selIdx, 1);
+            
+            await set(ref(db, `games/${curRoomId}`), currentData);
+        }
     }, 450);
 }
 
